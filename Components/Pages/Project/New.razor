@@ -1,0 +1,123 @@
+﻿@page "/project/new"
+@using Mono.Cecil
+@using XMLDocCrowdSourcer.Components.Account
+@using XMLDocCrowdSourcer.Data
+@using Microsoft.AspNetCore.Authorization
+@inject ApplicationDbContext db
+@inject IToastService toastService
+@inject NavigationManager NavigationManager
+@rendermode InteractiveServer
+
+@attribute [Authorize]
+
+<PageTitle>New Project</PageTitle>
+
+<h3>New Project</h3>
+
+<form method="post" @onsubmit="SubmitForm">
+
+    <FluentTextField Label="Project Name" Required=true Class="mb-2" @bind-Value=projectName></FluentTextField>
+
+    <br />
+
+    <FluentInputFile Mode="InputFileMode.SaveToTemporaryFolder"
+                     DragDropZoneVisible="false"
+                     Multiple="false"
+                     AnchorId="UploadButton"
+                     MaximumFileSize="@MAX_FILE_SIZE"
+                     Accept=".exe,.dll,application/vnd.microsoft.portable-executable"
+                     OnCompleted="FileChange"/>
+
+    <FluentButton Id="UploadButton" Appearance="Appearance.Accent" Class="mb-2">
+        Choose Assembly
+    </FluentButton>
+
+    <br />
+    <!-- Check Account/Manage/Index for maybe a better/more standard way to do this -->
+    @if (errorText != null) {
+        <p class="error-text">@errorText</p>
+    }
+
+    <AuthorizeView>
+        @foreach (var claim in @context.User.Claims) {
+            <p>@claim.Type @claim.Value</p>
+        }
+    </AuthorizeView>
+
+    <FluentButton Type="ButtonType.Submit" Disabled=loading>
+        @if (loading) {
+            <FluentProgressRing></FluentProgressRing>
+        } else {
+            <span>Submit</span>
+        }
+    </FluentButton>
+</form>
+
+@code {
+    private const long MAX_FILE_SIZE = 1024 * 1024 * 100;
+
+    private string projectName = "";
+
+    private FileInfo? file = null;
+
+    private string? errorText;
+
+    private bool loading = false;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationState { get; set; }
+
+    private async Task SubmitForm() {
+        if (file == null) {
+            errorText = "Please provide a .NET assembly for this project";
+            return;
+        }
+        if (authenticationState is null
+            || (await authenticationState) is not { } auth
+            || !auth.User.TryGetAuthenticatedId(out string? userId)) {
+            errorText = "You are not authenticated";
+            return;
+        }
+        var user = await db.Users.FindAsync(userId);
+        if (user == null) {
+            errorText = "Unable to find current user";
+            return;
+        }
+
+        errorText = null;
+        loading = true;
+
+        var tempPath = Path.GetTempFileName();
+
+        try {
+            await using FileStream fs = new(tempPath, FileMode.Create);
+            await file.OpenRead().CopyToAsync(fs);
+
+            // Return to beginning of temp file to read it back
+            fs.Seek(0, SeekOrigin.Begin);
+            var asm = AssemblyDefinition.ReadAssembly(fs);
+
+            var builder = new ProjectBuilder(projectName);
+
+            foreach (ModuleDefinition moduleDef in asm.Modules) {
+                builder.AddModule(moduleDef);
+            }
+
+            var project = builder.Build();
+            project.Owners.Add(user);
+            var entry = db.Projects.Add(project);
+            await db.SaveChangesAsync();
+            NavigationManager.NavigateTo($"/project/{entry.Entity.Id}?u={project.Owners[0].Id}");
+        } finally {
+            File.Delete(tempPath);
+        }
+    }
+
+    private void FileChange(IEnumerable<FluentInputFileEventArgs> files) {
+        if (files.Any()) {
+            file = files.First().LocalFile;
+        } else {
+            file = null;
+        }
+    }
+}

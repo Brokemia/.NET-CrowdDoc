@@ -1,0 +1,90 @@
+﻿@page "/project/{Id:guid}"
+@using XMLDocCrowdSourcer.Data
+@using Microsoft.EntityFrameworkCore;
+@inject ApplicationDbContext db
+@rendermode InteractiveServer
+
+@if (project == null) {
+    <p>Loading...</p>
+} else {
+    <h3>@project.Name</h3>
+    @(test ?? "null")
+    <CascadingValue Value="@project">
+        <FluentSplitter Orientation="Orientation.Horizontal" Panel1MinSize="10%" Panel1Size="20%" Panel2MinSize="10%">
+            <Panel1>
+                <input type="text"
+                       class="w-100"
+                       @oninput="OnChangeSearch" />
+                <div class="group-list-panel">
+                    <FluentTreeView OnSelectedChange=OnChooseMapping>
+                        <MappingGroupList Groups="@project.Groups" Filter="ListFilter" />
+                    </FluentTreeView>
+                </div>
+            </Panel1>
+            <Panel2>
+                <div class="vh-85 overflow-scroll">
+                    <MappingDetails @bind-Mapping:get="SelectedMapping" />
+                </div>
+            </Panel2>
+        </FluentSplitter>
+    </CascadingValue>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; } = default!;
+
+    private Project? project;
+
+    private Mapping? SelectedMapping { get; set; }
+
+    private string SearchText { get; set; } = "";
+
+    private bool IsFiltering => !string.IsNullOrEmpty(SearchText);
+
+    private string test { get; set; } = "aaa";
+
+    private HashSet<MappingGroup> filteredGroups = new();
+
+    protected async override Task OnParametersSetAsync() {
+        project = await db.Projects.FindAsync(Id);
+        // test = project.Groups[0].ProjectId.ToString();
+    }
+
+    private void OnChooseMapping(FluentTreeItem item) {
+        if (item.Data is not (MappingGroupList groupList, int mappingIdx)) {
+            return;
+        }
+
+        SelectedMapping = groupList.Groups[mappingIdx].Mapping;
+    }
+
+    private bool ListFilter(MappingGroup group) {
+        return !IsFiltering || filteredGroups.Contains(group);
+    }
+
+    private async Task FilterIncludeParents(MappingGroup group) {
+        if (group.ParentMappingGroup is not { } parent) {
+            return;
+        }
+
+        filteredGroups.Add(parent);
+        await FilterIncludeParents(parent);
+    }
+
+    // TODO debounce
+    // TODO consider doing this with a binding and @bind:after for the search
+    private async Task OnChangeSearch(ChangeEventArgs e) {
+        SearchText = e.Value?.ToString() ?? "";
+
+        var results = db.MappingGroups.Where(g => g.Project == project
+            && g.Mapping != null
+            && g.Name.Contains(SearchText));
+
+        filteredGroups.Clear();
+        filteredGroups.UnionWith(results);
+        foreach (var group in results) {
+            await FilterIncludeParents(group);
+        }
+    }
+}

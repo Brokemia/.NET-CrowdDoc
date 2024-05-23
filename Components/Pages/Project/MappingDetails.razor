@@ -1,0 +1,108 @@
+﻿@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using XMLDocCrowdSourcer.Data
+@inject IToastService ToastService
+@inject ApplicationDbContext db
+@inject IAuthorizationService AuthorizationService
+
+<!-- TODO: readonly view for unauthenticated users, or maybe just redirect to login -->
+
+<div class="p-2">
+    @if (Mapping == null) {
+        <p>Nothing selected</p>
+    } else {
+        <h3>@Mapping.XmlDocId</h3>
+        @if (HasPendingProposal) {
+            <FluentMessageBar Title="Proposal Pending" Intent="@MessageIntent.Warning" AllowDismiss="false" Class="mb-2">
+                You already have a pending proposal for this documentation.
+            </FluentMessageBar>
+        }
+        <form method="post" @onsubmit="OnSubmit" @formname="mapping-form">
+            <AntiforgeryToken />
+            <FluentTextArea @bind-Value="Documentation" Cols="150" Rows="10" class="mb-2"></FluentTextArea>
+            <br />
+            <!--
+                Made this not a submit button, as that resulted in the text area submitting with every enter press
+                This is a known bug: https://github.com/microsoft/fluentui-blazor/issues/1085
+            -->
+            <FluentButton Disabled=@((Mapping?.Documentation ?? "") == Documentation)>
+                <AuthorizeView Policy="ProjectEditMappings" Resource="@Project" Context=innerContext>
+                    <Authorized>
+                        Update
+                    </Authorized>
+                    <NotAuthorized>
+                        Propose Changes
+                    </NotAuthorized>
+                </AuthorizeView>
+            </FluentButton>
+        </form>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Project? Project { get; set; }
+
+    [Parameter]
+    public Mapping? Mapping { get; set; }
+
+    [Parameter]
+    public EventCallback<Mapping?> MappingChanged { get; set; }
+
+    private string Documentation { get; set; } = "";
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? authenticationState { get; set; }
+
+    private bool HasPendingProposal { get; set; }
+
+    protected override async Task OnParametersSetAsync() {
+        Documentation = Mapping?.Documentation ?? "";
+        if (Mapping != null
+            && authenticationState is not null
+            && (await authenticationState) is { } auth
+            && auth.User.TryGetAuthenticatedId(out string? userId)) {
+            HasPendingProposal = db.MappingProposals.Any(p => p.Mapping.Id == Mapping.Id && p.Author.Id == userId);
+        }
+    }
+
+    private async Task OnSubmit() {
+        if (Mapping == null) {
+            return;
+        }
+
+        var doc = string.IsNullOrWhiteSpace(Documentation) ? null : Documentation;
+
+        if (authenticationState is null
+            || (await authenticationState) is not { } auth) {
+            ToastService.ShowError("You are not authenticated");
+            return;
+        }
+
+        if ((await AuthorizationService.AuthorizeAsync(auth.User, Project, "ProjectEditMappings")).Succeeded) {
+            // Send the edit through immediately
+            Mapping.Documentation = doc;
+            db.SaveChanges();
+            ToastService.ShowSuccess("Updated documentation");
+            return;
+        }
+
+        if (!auth.User.TryGetAuthenticatedId(out string? userId)
+            || (await db.Users.FindAsync(userId)) is not { } user) {
+            ToastService.ShowError("You are not authenticated");
+            return;
+        }
+
+        // Submit a proposal
+        MappingProposal proposal = new() {
+                Author = user,
+                Mapping = Mapping,
+                ProposedValue = doc
+            };
+
+        db.MappingProposals.Add(proposal);
+        db.SaveChanges();
+        HasPendingProposal = true;
+        ToastService.ShowSuccess("Submitted proposed change");
+    }
+}

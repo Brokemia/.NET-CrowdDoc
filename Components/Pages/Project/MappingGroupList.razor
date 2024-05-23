@@ -1,0 +1,59 @@
+﻿@using XMLDocCrowdSourcer.Data
+@using Microsoft.EntityFrameworkCore;
+@inject ApplicationDbContext db
+
+<!-- Sort alphabetically, and we also need the index for events -->
+@foreach (var (i, group) in Groups.Select((g, i) => (i, g)).Where(tuple => NonNullFilter(tuple.g)).OrderBy(tuple => tuple.g.Name)) {
+    // Capture variable as is
+    var idx = i;
+
+    // Exclude items without mappings to assign or children with mappings
+    //if (group.Mapping == null && !group.Groups.Any(NonNullFilter)) {
+    //    continue;
+    //}
+
+    // Either use the cached count, or do a fancy query to check if there are any elements
+    @if (group.GroupsCount < 0 ? db.Entry(group).Collection(g => g.Groups).Query().Any() : (group.GroupsCount > 0)) {
+        <FluentTreeItem Data="(this, idx)" @bind-Expanded:set="SetExpandedDelegate(group)" @bind-Expanded:get="IsExpanded(group)">
+            @group.Name
+            @if (IsExpanded(group)) {
+                <MappingGroupList Groups="group.Groups" Filter=Filter! />
+            } else {
+                <FluentTreeItem Disabled>Loading...</FluentTreeItem>
+            }
+        </FluentTreeItem>
+    } else {
+        <FluentTreeItem>@group.Name</FluentTreeItem>
+    }
+}
+
+@code {
+    [Parameter]
+    public required List<MappingGroup> Groups { get; set; }
+
+    [Parameter]
+    public Func<MappingGroup, bool>? Filter { get; set; }
+    private Func<MappingGroup, bool> NonNullFilter => Filter ?? ((g) => true);
+
+    private Dictionary<MappingGroup, bool> Expanded { get; set; } = [];
+
+    // If default dictionaries existed, these two methods could have been avoided
+    private Action<bool> SetExpandedDelegate(MappingGroup group) {
+        return (val) => {
+            if (val) {
+                var groupCollection = db.Entry(group).Collection(g => g.Groups);
+                groupCollection.Query().Include(g => g.Mapping).Load();
+
+                // Cache the number of groups in the children to avoid refetching this info later
+                foreach (var groupAndCount in groupCollection.Query().Select(g => new { Group = g, Count = g.Groups.Count() })) {
+                    groupAndCount.Group.GroupsCount = groupAndCount.Count;
+                }
+            }
+            Expanded[group] = val;
+        };
+    }
+
+    private bool IsExpanded(MappingGroup group) {
+        return Expanded.TryGetValue(group, out bool expanded) && expanded;
+    }
+}
