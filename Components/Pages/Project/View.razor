@@ -47,16 +47,17 @@
     private HashSet<MappingGroup> filteredGroups = new();
 
     protected async override Task OnParametersSetAsync() {
-        project = await db.Projects.FindAsync(Id);
-        // test = project.Groups[0].ProjectId.ToString();
+        project = await db.Projects
+            .Include(p => p.Groups)
+            .Include(p => p.Owners)
+            .Include(p => p.Managers)
+            .SingleAsync(p => p.Id == Id);
     }
 
+    // TODO seems to be re-rendering both panels (or at least doing all the db queries for the list)
+    // Try to fix that
     private void OnChooseMapping(FluentTreeItem item) {
-        if (item.Data is not (MappingGroupList groupList, int mappingIdx)) {
-            return;
-        }
-
-        SelectedMapping = groupList.Groups[mappingIdx].Mapping;
+        SelectedMapping = (item.Data as MappingGroup)?.Mapping;
     }
 
     private bool ListFilter(MappingGroup group) {
@@ -77,7 +78,8 @@
     private async Task OnChangeSearch(ChangeEventArgs e) {
         SearchText = e.Value?.ToString() ?? "";
 
-        var results = db.MappingGroups.Where(g => g.Project == project
+        var projectId = project?.Id;
+        var results = db.MappingGroups.Where(g => g.Project.Id == projectId
             && g.Mapping != null
             && g.Name.Contains(SearchText));
 

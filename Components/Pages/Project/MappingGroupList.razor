@@ -14,7 +14,7 @@
 
     // Either use the cached count, or do a fancy query to check if there are any elements
     @if (group.GroupsCount < 0 ? db.Entry(group).Collection(g => g.Groups).Query().Any() : (group.GroupsCount > 0)) {
-        <FluentTreeItem Data="(this, idx)" @bind-Expanded:set="SetExpandedDelegate(group)" @bind-Expanded:get="IsExpanded(group)">
+        <FluentTreeItem Data="group" @bind-Expanded:set="SetExpandedDelegate(group)" @bind-Expanded:get="IsExpanded(group)">
             @group.Name
             @if (IsExpanded(group)) {
                 <MappingGroupList Groups="group.Groups" Filter=Filter! />
@@ -23,7 +23,7 @@
             }
         </FluentTreeItem>
     } else {
-        <FluentTreeItem>@group.Name</FluentTreeItem>
+        <FluentTreeItem Data="group">@group.Name</FluentTreeItem>
     }
 }
 
