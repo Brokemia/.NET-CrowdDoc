@@ -1,0 +1,26 @@
+﻿@using Microsoft.EntityFrameworkCore;
+@using XMLDocCrowdSourcer.Data
+@inject ApplicationDbContext db
+
+@foreach (var proposal in Proposals) {
+    <ProposalDisplay Proposal="proposal" OnProposalUpdated="OnProposalUpdated" />
+}
+
+@code {
+    [CascadingParameter]
+    private Project Project { get; set; } = null!;
+
+    private IQueryable<MappingProposal> Proposals { get; set; } = null!;
+
+    protected override void OnParametersSet() {
+        Proposals = db.MappingProposals
+            .Where(p => p.Project.Id == Project.Id)
+            .OrderBy(p => p.Created)
+            .Include(p => p.Mapping)
+            .Include(p => p.Author);
+    }
+
+    private void OnProposalUpdated() {
+        OnParametersSet();
+    }
+}

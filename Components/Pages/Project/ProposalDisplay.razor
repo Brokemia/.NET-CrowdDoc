@@ -1,0 +1,64 @@
+﻿@using Blazorme
+@using XMLDocCrowdSourcer.Data
+@inject ApplicationDbContext db
+@inject IToastService ToastService
+
+<div>
+    <div class="d-flex justify-content-between align-content-center">
+        <h4>@Proposal.Mapping.XmlDocId - Proposed by @Proposal.Author.UserName at @Proposal.Created</h4>
+        <span>
+            <FluentButton Color="white" BackgroundColor="limegreen" OnClick="ApproveProposal">Approve</FluentButton>
+            <FluentButton Color="white" BackgroundColor="red" OnClick="DeclineProposal">Decline</FluentButton>
+        </span>
+    </div>
+    <Diff OutputFormat=DiffOutputFormat.Column
+            FirstInput=@(Proposal.Mapping.Documentation ?? "")
+            SecondInput=@Proposal.ProposedValue
+            FirstTitle=@Proposal.Mapping.XmlDocId
+            SecondTitle=@Proposal.Mapping.XmlDocId />
+</div>
+
+@code {
+    [Parameter]
+    public required MappingProposal Proposal { get; set; }
+
+    [Parameter]
+    public Action? OnProposalUpdated { get; set; }
+
+    private void ApproveProposal() {
+        var oldValue = Proposal.Mapping.Documentation;
+        Proposal.Mapping.Documentation = Proposal.ProposedValue;
+        db.MappingProposals.Remove(Proposal);
+
+        var callback = EventCallback.Factory.Create<ToastResult>(this, result => RestoreProposal(result, true, oldValue));
+        ToastService.ShowSuccess("Proposal declined", null, "Undo", callback);
+        db.SaveChanges();
+        OnProposalUpdated?.Invoke();
+    }
+
+    private void DeclineProposal() {
+        db.MappingProposals.Remove(Proposal);
+
+        // var callback = EventCallback.Factory.Create<ToastResult>(this, result => RestoreProposal(result, false, null));
+        var callback = EventCallback.Factory.Create<ToastResult>(this, Test);
+        ToastService.ShowSuccess("Proposal declined", 6000, "Undo", callback);
+        db.SaveChanges();
+        OnProposalUpdated?.Invoke();
+    }
+
+    private void Test(ToastResult res) {
+        Console.WriteLine("hi");
+    }
+
+    private void RestoreProposal(ToastResult result, bool approved, string? oldValue) {
+        // Restore old value
+        // if (approved) {
+        //     Proposal.Mapping.Documentation = oldValue;
+        // }
+
+        // db.MappingProposals.Add(Proposal);
+        // db.SaveChanges();
+        // OnProposalUpdated?.Invoke();
+        Console.WriteLine("hi ?" + oldValue);
+    }
+}

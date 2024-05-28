@@ -19,14 +19,14 @@
         }
         <form method="post" @onsubmit="OnSubmit" @formname="mapping-form">
             <AntiforgeryToken />
-            <FluentTextArea @bind-Value="Documentation" Cols="150" Rows="10" class="mb-2"></FluentTextArea>
+            <FluentTextArea @bind-Value="Documentation" Immediate Cols="150" Rows="10" class="mb-2"></FluentTextArea>
             <br />
             <!--
                 Made this not a submit button, as that resulted in the text area submitting with every enter press
                 This is a known bug: https://github.com/microsoft/fluentui-blazor/issues/1085
             -->
             <FluentButton @onclick=OnSubmit Disabled=@((Mapping?.Documentation ?? "") == Documentation)>
-                <AuthorizeView Policy="ProjectEditMappings" Resource="@Project" Context=innerContext>
+                <AuthorizeView Policy="Project.Mappings.Edit" Resource="@Project" Context=innerContext>
                     <Authorized>
                         Update
                     </Authorized>
@@ -41,7 +41,7 @@
 
 @code {
     [CascadingParameter]
-    private Project? Project { get; set; }
+    private Project Project { get; set; } = null!;
 
     [Parameter]
     public Mapping? Mapping { get; set; }
@@ -79,7 +79,7 @@
             return;
         }
 
-        if ((await AuthorizationService.AuthorizeAsync(auth.User, Project, "ProjectEditMappings")).Succeeded) {
+        if ((await AuthorizationService.AuthorizeAsync(auth.User, Project, "Project.Mappings.Edit")).Succeeded) {
             // Send the edit through immediately
             Mapping.Documentation = doc;
             db.SaveChanges();
@@ -97,7 +97,9 @@
         MappingProposal proposal = new() {
                 Author = user,
                 Mapping = Mapping,
-                ProposedValue = doc
+                ProposedValue = doc,
+                Created = DateTime.UtcNow,
+                Project = Project!
             };
 
         db.MappingProposals.Add(proposal);

@@ -1,3 +1,4 @@
+using Blazorme;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -37,8 +38,12 @@ builder.Services.AddAuthentication(options => {
     .AddIdentityCookies();
 
 builder.Services.AddAuthorization(options => {
-    options.AddPolicy("ProjectEditMappings", policy =>
-        policy.AddRequirements(new ProjectEditMappingsRequirement()));
+    options.AddPolicy("Project.Mappings.Edit", policy =>
+        policy.AddRequirements(new ProjectRequirement { AllowManagers = true, AllowOwners = true }));
+    options.AddPolicy("Project.Proposals.Approve", policy =>
+        policy.AddRequirements(new ProjectRequirement { AllowManagers = true, AllowOwners = true }));
+    options.AddPolicy("Project.Managers.Edit", policy =>
+        policy.AddRequirements(new ProjectRequirement { AllowOwners = true }));
 });
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectOwnerHandler>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectManagerHandler>();
@@ -56,6 +61,9 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
 
 // TODO email confirmation provider or remove this feature
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+// Diff component
+builder.Services.AddDiff();
 
 var app = builder.Build();
 

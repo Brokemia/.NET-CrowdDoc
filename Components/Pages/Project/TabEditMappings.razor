@@ -1,40 +1,30 @@
-﻿@page "/project/{Id:guid}"
-@using XMLDocCrowdSourcer.Data
+﻿@using XMLDocCrowdSourcer.Data
 @using Microsoft.EntityFrameworkCore;
 @inject ApplicationDbContext db
-@rendermode InteractiveServer
 
-@if (project == null) {
-    <p>Loading...</p>
-} else {
-    <h3>@project.Name</h3>
-    @(test ?? "null")
-    <CascadingValue Value="@project">
-        <FluentSplitter Orientation="Orientation.Horizontal" Panel1MinSize="10%" Panel1Size="20%" Panel2MinSize="10%">
-            <Panel1>
-                <input type="text"
-                       class="w-100"
-                       @oninput="OnChangeSearch" />
-                <div class="group-list-panel">
-                    <FluentTreeView OnSelectedChange=OnChooseMapping>
-                        <MappingGroupList Groups="@project.Groups" Filter="ListFilter" />
-                    </FluentTreeView>
-                </div>
-            </Panel1>
-            <Panel2>
-                <div class="vh-85 overflow-scroll">
-                    <MappingDetails @bind-Mapping:get="SelectedMapping" />
-                </div>
-            </Panel2>
-        </FluentSplitter>
-    </CascadingValue>
-}
+<CascadingValue Value="@project">
+    <FluentSplitter Orientation="Orientation.Horizontal" Panel1MinSize="10%" Panel1Size="20%" Panel2MinSize="10%">
+        <Panel1>
+            <input type="text"
+                    class="w-100"
+                    @oninput="OnChangeSearch" />
+            <div class="group-list-panel">
+                <FluentTreeView OnSelectedChange=OnChooseMapping>
+                    <MappingGroupList Groups="@project.Groups" Filter="ListFilter" />
+                </FluentTreeView>
+            </div>
+        </Panel1>
+        <Panel2>
+            <div class="vh-85 overflow-scroll">
+                <MappingDetails @bind-Mapping:get="SelectedMapping" />
+            </div>
+        </Panel2>
+    </FluentSplitter>
+</CascadingValue>
 
 @code {
-    [Parameter]
-    public Guid Id { get; set; } = default!;
-
-    private Project? project;
+    [CascadingParameter]
+    private Project project { get; set; } = null!;
 
     private Mapping? SelectedMapping { get; set; }
 
@@ -42,17 +32,7 @@
 
     private bool IsFiltering => !string.IsNullOrEmpty(SearchText);
 
-    private string test { get; set; } = "aaa";
-
     private HashSet<MappingGroup> filteredGroups = new();
-
-    protected async override Task OnParametersSetAsync() {
-        project = await db.Projects
-            .Include(p => p.Groups)
-            .Include(p => p.Owners)
-            .Include(p => p.Managers)
-            .SingleAsync(p => p.Id == Id);
-    }
 
     // TODO seems to be re-rendering both panels (or at least doing all the db queries for the list)
     // Try to fix that

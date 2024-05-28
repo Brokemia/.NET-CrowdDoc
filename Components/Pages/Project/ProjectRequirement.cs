@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 
 namespace XMLDocCrowdSourcer.Components.Pages.Project {
-    public abstract class ProjectRequirement : IAuthorizationRequirement { }
+    public class ProjectRequirement : IAuthorizationRequirement {
+        public bool AllowOwners { get; set; }
 
-    public class ProjectEditMappingsRequirement : ProjectRequirement { }
+        public bool AllowManagers { get; set; }
+    }
 }

@@ -1,0 +1,44 @@
+﻿@page "/project/{Id:guid}"
+@using Microsoft.EntityFrameworkCore
+@using XMLDocCrowdSourcer.Data
+@inject ApplicationDbContext db
+@rendermode InteractiveServer
+
+@if (project == null) {
+    <p>Loading...</p>
+} else {
+    <h3>@project.Name</h3>
+
+    <CascadingValue Value=project>
+        <FluentTabs>
+            <FluentTab Label="Edit Documentation" Id="tab-1">
+                <TabEditMappings />
+            </FluentTab>
+            <AuthorizeView Policy="Project.Proposals.Approve" Resource="project">
+                <FluentTab Label="Pending Proposals" Id="tab-2" DeferredLoading>
+                    <TabApproveProposals />
+                </FluentTab>
+            </AuthorizeView>
+            <AuthorizeView Policy="Project.Managers.Edit" Resource="project">
+                <FluentTab Label="Manage Project" Id="tab-3">
+                    Tab three content. This is for testing.
+                </FluentTab>
+            </AuthorizeView>
+        </FluentTabs>
+    </CascadingValue>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; } = default!;
+
+    private Project? project { get; set; }
+
+    protected async override Task OnParametersSetAsync() {
+        project = await db.Projects
+            .Include(p => p.Groups)
+            .Include(p => p.Owners)
+            .Include(p => p.Managers)
+            .SingleAsync(p => p.Id == Id);
+    }
+}
