@@ -1,9 +1,12 @@
 ﻿@using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
+@using System.Xml
 @using XMLDocCrowdSourcer.Data
+@using XMLDocCrowdSourcer.Services
 @inject IToastService ToastService
 @inject ApplicationDbContext db
 @inject IAuthorizationService AuthorizationService
+@inject IDocumentationParser docParser
 
 <!-- TODO: readonly view for unauthenticated users, or maybe just redirect to login -->
 
@@ -77,6 +80,20 @@
             || (await authenticationState) is not { } auth) {
             ToastService.ShowError("You are not authenticated");
             return;
+        }
+
+        // Validate documentation
+        if (doc != null) {
+            try {
+                docParser.ParseElement(new Mapping {
+                    XmlDocId = Mapping.XmlDocId,
+                    Documentation = doc
+                });
+            } catch (XmlException e) {
+                // TODO Consider having this somewhere better than a toast
+                ToastService.ShowError(e.Message);
+                return;
+            }
         }
 
         if ((await AuthorizationService.AuthorizeAsync(auth.User, Project, "Project.Mappings.Edit")).Succeeded) {

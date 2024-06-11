@@ -1,0 +1,98 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using System.Xml
+@using XMLDocCrowdSourcer.Data
+@inject ApplicationDbContext db
+@inject IToastService ToastService
+
+<AuthorizeView Policy="Project.Mappings.Import" Resource=Project>
+    <FluentInputFile Mode="InputFileMode.SaveToTemporaryFolder"
+                     DragDropZoneVisible="false"
+                     Multiple="false"
+                     AnchorId="UploadButton"
+                     MaximumFileSize="@MAX_FILE_SIZE"
+                     Accept=".xml,application/xml"
+                     OnCompleted="ImportXml" />
+
+    <FluentButton Id="UploadButton">Import xml</FluentButton>
+</AuthorizeView>
+
+@code {
+    // 1 MB
+    private const long MAX_FILE_SIZE = 1024 * 1024 * 1;
+
+    [Parameter]
+    public required Project Project { get; set; }
+
+    private void LoadMembers(XmlElement members, List<(string, string)> extracted) {
+        foreach (var element in members.ChildNodes.OfType<XmlElement>()) {
+            if (element.LocalName == "members") {
+                LoadMembers(element, extracted);
+            } else if (element.LocalName == "member" && element.HasAttribute("name")) {
+                var name = element.GetAttribute("name");
+                var value = element.InnerXml.Trim();
+                if (string.IsNullOrWhiteSpace(value)) continue;
+                extracted.Add((name, value));
+            }
+        }
+    }
+
+    private async Task ImportXml(IEnumerable<FluentInputFileEventArgs> files) {
+        if (!files.Any()) return;
+        var file = files.First().LocalFile;
+        if (file == null) return;
+
+        var fileStream = file.OpenRead();
+        var doc = new XmlDocument();
+        doc.Load(fileStream);
+        XmlElement? root = null;
+        foreach (var child in doc.ChildNodes.OfType<XmlElement>()) {
+            if (child.Name == "doc") {
+                root = child;
+                break;
+            }
+        }
+        if (root == null) {
+            ToastService.ShowError("Unable to find xml root");
+            return;
+        }
+
+        List<(string XmlId, string Value)> extracted = new();
+        foreach (var element in root.ChildNodes.OfType<XmlElement>()) {
+            if (element.LocalName == "members") {
+                LoadMembers(element, extracted);
+            }
+        }
+
+        int failedMappings = 0;
+        int successfulMappings = 0;
+        var mappingDict = await db.MappingGroups
+            .Include(g => g.Mapping)
+            .Where(g => g.Mapping != null && g.Project.Id == Project.Id)
+            .ToDictionaryAsync(g => g.Mapping!.XmlDocId, g => g.Mapping!);
+
+        foreach (var mapping in extracted) {
+            if (!mappingDict.TryGetValue(mapping.XmlId, out Mapping? value)) {
+                failedMappings++;
+                Console.WriteLine(mapping.XmlId);
+            } else {
+                value.Documentation = mapping.Value;
+                successfulMappings++;
+            }
+        }
+
+        await db.SaveChangesAsync();
+
+        if (successfulMappings == 0) {
+            if (failedMappings == 0) {
+                ToastService.ShowError("No documentation entries found");
+            } else {
+                ToastService.ShowError($"No documentation updated, {failedMappings} entries could not be found");
+            }
+        } else {
+            ToastService.ShowSuccess($"Updated {successfulMappings} documentation entries");
+            if (failedMappings != 0) {
+                ToastService.ShowError($"{failedMappings} entries could not be found");
+            }
+        }
+    }
+}

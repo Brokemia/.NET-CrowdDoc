@@ -15,7 +15,7 @@
             </div>
         </Panel1>
         <Panel2>
-            <div class="vh-85 overflow-scroll">
+            <div class="vh-81 overflow-scroll">
                 <MappingDetails @bind-Mapping:get="SelectedMapping" />
             </div>
         </Panel2>
@@ -53,7 +53,7 @@
         await FilterIncludeParents(parent);
     }
 
-    // TODO debounce
+    // TODO debounce (an example here https://www.fluentui-blazor.net/Search)
     // TODO consider doing this with a binding and @bind:after for the search
     private async Task OnChangeSearch(ChangeEventArgs e) {
         SearchText = e.Value?.ToString() ?? "";

@@ -22,11 +22,14 @@ namespace XMLDocCrowdSourcer.Components.Pages.Project {
         }
 
         private string Name;
+        
+        private string AssemblyName;
 
         private Dictionary<string, Node> Nodes = [];
 
-        public ProjectBuilder(string name) {
+        public ProjectBuilder(string name, string assemblyName) {
             Name = name;
+            AssemblyName = assemblyName;
         }
 
         private Node ResolveTypeNode(string path) {
@@ -150,7 +153,8 @@ namespace XMLDocCrowdSourcer.Components.Pages.Project {
 
         public Data.Project Build() {
             Data.Project res = new() {
-                Name = Name
+                Name = Name,
+                AssemblyName = AssemblyName
             };
 
             foreach (var node in Nodes.Values) {

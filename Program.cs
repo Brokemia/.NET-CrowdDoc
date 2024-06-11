@@ -9,6 +9,7 @@ using XMLDocCrowdSourcer.Components;
 using XMLDocCrowdSourcer.Components.Account;
 using XMLDocCrowdSourcer.Components.Pages.Project;
 using XMLDocCrowdSourcer.Data;
+using XMLDocCrowdSourcer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddFluentUIComponents();
+builder.Services.AddDataGridEntityFrameworkAdapter();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityUserAccessor>();
@@ -44,6 +46,10 @@ builder.Services.AddAuthorization(options => {
         policy.AddRequirements(new ProjectRequirement { AllowManagers = true, AllowOwners = true }));
     options.AddPolicy("Project.Managers.Edit", policy =>
         policy.AddRequirements(new ProjectRequirement { AllowOwners = true }));
+    // Currently overwrites a ton of stuff, so definitely needs stricter access
+    // Also there's not really a reason you'd want to do this often
+    options.AddPolicy("Project.Mappings.Import", policy =>
+        policy.AddRequirements(new ProjectRequirement { AllowOwners = true }));
 });
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectOwnerHandler>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectManagerHandler>();
@@ -61,6 +67,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.Requ
 
 // TODO email confirmation provider or remove this feature
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddSingleton<IDocumentationParser, DocumentationParser>();
 
 // Diff component
 builder.Services.AddDiff();

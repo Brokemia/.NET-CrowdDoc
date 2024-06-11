@@ -68,16 +68,24 @@ h1:focus {
 }
 
 .group-list-panel {
-    height: 82vh;
+    height: 81vh;
     overflow: scroll;
 }
 
-.vh-85 {
-    height: 85vh;
+.vh-81 {
+    height: 81vh;
 }
 
 .error-text {
     color: darkred;
     font-size: .8em;
     margin-bottom: 2px;
+}
+
+.vert-align-middle {
+    vertical-align: middle;
+}
+
+.ml-2 {
+    margin-left: .5rem !important
 }

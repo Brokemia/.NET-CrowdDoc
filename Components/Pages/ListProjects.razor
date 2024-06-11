@@ -1,0 +1,28 @@
+﻿@page "/"
+@using XMLDocCrowdSourcer.Data
+@inject ApplicationDbContext db
+@inject NavigationManager navigationManager
+@rendermode InteractiveServer
+
+<h3>Projects</h3>
+
+@if (projects == null) {
+    <p>Loading...</p>
+} else {
+    <FluentDataGrid Items="@projects" TGridItem="Project">
+        <TemplateColumn Title="Name" Sortable="true" SortBy="GridSort<Project>.ByDescending(p => p.Name)">
+            <a href="project/@context.Id">@context.Name</a>
+        </TemplateColumn>
+        <TemplateColumn Width="10rem" Align="Align.Center">
+            <ExportXmlButton Project="@context" />
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+@code {
+    private IQueryable<Project> projects = null!;
+
+    protected override void OnInitialized() {
+        projects = db.Projects;
+    }
+}

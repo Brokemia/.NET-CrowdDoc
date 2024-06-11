@@ -6,11 +6,11 @@ namespace XMLDocCrowdSourcer.Data {
         
         public required string Name { get; set; }
 
+        public required string AssemblyName { get; set; }
+
         [InverseProperty(nameof(MappingGroup.ParentProject))]
-        public virtual List<MappingGroup> Groups { get; set; } = [];
+        public List<MappingGroup> Groups { get; set; } = [];
 
-        public virtual List<ApplicationUser> Owners { get; set; } = [];
-
-        public virtual List<ApplicationUser> Managers { get; set; } = [];
+        public List<ProjectUser> UserRoles { get; set; } = [];
     }
 }

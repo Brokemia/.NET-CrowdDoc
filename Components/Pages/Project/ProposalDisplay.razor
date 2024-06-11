@@ -30,8 +30,9 @@
         Proposal.Mapping.Documentation = Proposal.ProposedValue;
         db.MappingProposals.Remove(Proposal);
 
-        var callback = EventCallback.Factory.Create<ToastResult>(this, result => RestoreProposal(result, true, oldValue));
-        ToastService.ShowSuccess("Proposal declined", null, "Undo", callback);
+        var removedProposal = Proposal;
+        var callback = EventCallback.Factory.Create<ToastResult>(this, result => RestoreProposal(result, removedProposal, true, oldValue));
+        ToastService.ShowSuccess("Proposal approved", 8000, "Undo", callback);
         db.SaveChanges();
         OnProposalUpdated?.Invoke();
     }
@@ -39,26 +40,22 @@
     private void DeclineProposal() {
         db.MappingProposals.Remove(Proposal);
 
-        // var callback = EventCallback.Factory.Create<ToastResult>(this, result => RestoreProposal(result, false, null));
-        var callback = EventCallback.Factory.Create<ToastResult>(this, Test);
-        ToastService.ShowSuccess("Proposal declined", 6000, "Undo", callback);
+        var removedProposal = Proposal;
+        var callback = EventCallback.Factory.Create<ToastResult>(this, result => RestoreProposal(result, removedProposal, false, null));
+        ToastService.ShowSuccess("Proposal declined", 8000, "Undo", callback);
         db.SaveChanges();
         OnProposalUpdated?.Invoke();
     }
 
-    private void Test(ToastResult res) {
-        Console.WriteLine("hi");
-    }
-
-    private void RestoreProposal(ToastResult result, bool approved, string? oldValue) {
+    private void RestoreProposal(ToastResult result, MappingProposal proposal, bool approved, string? oldValue) {
+        if (result.Cancelled) return;
         // Restore old value
-        // if (approved) {
-        //     Proposal.Mapping.Documentation = oldValue;
-        // }
+        if (approved) {
+            proposal.Mapping.Documentation = oldValue;
+        }
 
-        // db.MappingProposals.Add(Proposal);
-        // db.SaveChanges();
-        // OnProposalUpdated?.Invoke();
-        Console.WriteLine("hi ?" + oldValue);
+        db.MappingProposals.Add(proposal);
+        db.SaveChanges();
+        OnProposalUpdated?.Invoke();
     }
 }

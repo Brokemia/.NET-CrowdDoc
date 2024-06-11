@@ -1,13 +1,22 @@
 ﻿@page "/project/{Id:guid}"
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using XMLDocCrowdSourcer.Data
 @inject ApplicationDbContext db
 @rendermode InteractiveServer
 
+@attribute [Authorize]
+
 @if (project == null) {
     <p>Loading...</p>
 } else {
-    <h3>@project.Name</h3>
+    <div class="d-flex justify-content-between">
+        <h3>@project.Name</h3>
+        <span>
+            <ImportXmlButton Project=project />
+            <ExportXmlButton Project=project />
+        </span>
+    </div>
 
     <CascadingValue Value=project>
         <FluentTabs>
@@ -21,7 +30,7 @@
             </AuthorizeView>
             <AuthorizeView Policy="Project.Managers.Edit" Resource="project">
                 <FluentTab Label="Manage Project" Id="tab-3">
-                    Tab three content. This is for testing.
+                    <TabManageProject />
                 </FluentTab>
             </AuthorizeView>
         </FluentTabs>
@@ -37,8 +46,8 @@
     protected async override Task OnParametersSetAsync() {
         project = await db.Projects
             .Include(p => p.Groups)
-            .Include(p => p.Owners)
-            .Include(p => p.Managers)
+            .Include(p => p.UserRoles)
+            .ThenInclude(r => r.User)
             .SingleAsync(p => p.Id == Id);
     }
 }

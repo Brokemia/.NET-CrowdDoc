@@ -1,0 +1,121 @@
+﻿@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
+@using XMLDocCrowdSourcer.Data
+@inject ApplicationDbContext db
+@inject IDialogService DialogService
+@inject IToastService ToastService
+
+
+<div class="align-items-center d-flex">
+    <FluentAutocomplete TOption="ApplicationUser"
+                        AutoComplete="off"
+                        Placeholder="Find by username"
+                        OnOptionsSearch="@OnSearch"
+                        OptionText="@(item => item.UserName)"
+                        Class="d-inline"
+                        Width="500px"
+                        @bind-SelectedOptions="@SelectedItems" />
+    <FluentButton Class="m-2" OnClick="OnAddUsers" Disabled=@(!SelectedItems.Any())>Add</FluentButton>
+</div>
+
+<AuthorizeView Context="authContext">
+    <FluentDataGrid Items="@associatedUsers">
+        <PropertyColumn Title="Username" Property="@(p => p.User.UserName)" Sortable="true" />
+        <TemplateColumn Title="Role" Sortable="true" SortBy="GridSort<ProjectUser>.ByDescending(p => p.Role)">
+            <FluentButton Disabled=@(authContext.User.HasClaim(ClaimTypes.NameIdentifier, context.User.Id))
+                          OnClick="async () => await OpenRolePopup(context)">
+                @context.Role.ToString()
+            </FluentButton>
+        </TemplateColumn>
+        <TemplateColumn Width="4rem" Align="Align.Center">
+            <FluentButton Disabled=@(authContext.User.HasClaim(ClaimTypes.NameIdentifier, context.User.Id))
+                          IconEnd="@(new Icons.Regular.Size16.Delete())"
+                          OnClick="async () => await RemoveRolePopup(context)" />
+        </TemplateColumn>
+    </FluentDataGrid>
+</AuthorizeView>
+
+@code {
+    [CascadingParameter]
+    private Project Project { get; set; } = null!;
+
+    IQueryable<ProjectUser> associatedUsers = null!;
+
+    IEnumerable<ApplicationUser> SelectedItems = [];
+
+    protected override void OnParametersSet() {
+        associatedUsers = Project.UserRoles
+            .AsQueryable();
+    }
+
+    private void OnSearch(OptionsSearchEventArgs<ApplicationUser> e) {
+        // Can't use contains for
+        if (string.IsNullOrWhiteSpace(e.Text)) {
+            e.Items = [];
+            return;
+        }
+
+        // TODO consider taking first 5 if number of users gets large
+        e.Items = db.Users.Where(i => i.UserName != null
+            && i.UserName.ToLower().Contains(e.Text.ToLower())
+            && !i.ProjectRoles.Any(r => r.Project.Id == Project.Id))
+                          .OrderBy(i => i.UserName);
+    }
+
+    private async Task OpenRolePopup(ProjectUser context) {
+        var oldRole = context.Role;
+        var dialog = await DialogService.ShowDialogAsync<UserRoleDialog>(context, new DialogParameters() {
+                Title = $"Change role for {context.User.UserName}",
+                Width = "500px"
+            });
+        DialogResult result = await dialog.Result;
+        if (result.Cancelled || result.Data is not ProjectUser projectUser || projectUser.Role == oldRole) return;
+
+        await db.SaveChangesAsync();
+        ToastService.ShowSuccess($"Changed role for {context.User.UserName}");
+    }
+
+    private async Task RemoveRolePopup(ProjectUser context) {
+        var dialog = await DialogService.ShowDialogAsync(
+            @<p>Are you sure you want to remove @context.User.UserName from this project?</p>,
+            new DialogParameters() {
+                Width = "500px",
+                PrimaryAction = "Yes",
+                SecondaryAction = "No"
+            });
+        DialogResult result = await dialog.Result;
+        if (result.Cancelled) return;
+
+        db.ProjectUsers.Remove(context);
+        await db.SaveChangesAsync();
+        ToastService.ShowSuccess($"Removed {context.User.UserName} from the project");
+        OnParametersSet();
+    }
+
+    private async Task OnAddUsers() {
+        if (!SelectedItems.Any()) return;
+
+        // I could probably handle this better than making a fake user
+        var tempUser = new ProjectUser() {
+                Project = Project,
+                User = SelectedItems.First(),
+                Role = ProjectRole.Manager
+            };
+        IDialogReference dialog = await DialogService.ShowDialogAsync<UserRoleDialog>(tempUser, new DialogParameters() {
+                Title = $"Choose the role to grant these users",
+                Width = "500px"
+            });
+        DialogResult result = await dialog.Result;
+        if (result.Cancelled || result.Data is not ProjectUser projectUser) return;
+
+        db.ProjectUsers.AddRange(SelectedItems.Select(user => new ProjectUser() {
+                Project = Project,
+                User = user,
+                Role = projectUser.Role
+            }));
+
+        await db.SaveChangesAsync();
+        ToastService.ShowSuccess("Added new users");
+        OnParametersSet();
+    }
+}

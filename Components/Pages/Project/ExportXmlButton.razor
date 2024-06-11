@@ -1,0 +1,45 @@
+﻿@using System.Xml.Linq
+@using Microsoft.EntityFrameworkCore
+@using XMLDocCrowdSourcer.Data
+@using XMLDocCrowdSourcer.Services
+@inject ApplicationDbContext db
+@inject IJSRuntime JS
+@inject IDocumentationParser docParser
+
+<FluentButton OnClick=ExportXml>Export as xml</FluentButton>
+
+@code {
+    [Parameter]
+    public required Project Project { get; set; }
+
+    private async Task ExportXml() {
+        var doc = new XDocument();
+        var docElement = new XElement("doc");
+        doc.Add(docElement);
+        docElement.Add(new XElement("assembly",
+            new XElement("name", Project.AssemblyName)));
+        var membersElement = new XElement("members");
+        docElement.Add(membersElement);
+
+        XName memberName = "member";
+        XName nameName = "name";
+        foreach (var member in db.MappingGroups
+            // .Include(g => g.Mapping)
+            .Where(g => g.Project.Id == Project.Id && g.Mapping != null && g.Mapping.Documentation != null)
+            .Select(g => docParser.ParseElement(g.Mapping!))) {
+            membersElement.Add(member);
+        }
+        
+        // https://learn.microsoft.com/en-us/aspnet/core/blazor/file-downloads?view=aspnetcore-8.0
+        // https://stackoverflow.com/a/8389472/6337971
+        using var stream = new MemoryStream();
+        doc.Save(stream);
+        stream.Seek(0, SeekOrigin.Begin);
+
+        var fileName = $"{Project.AssemblyName}.xml";
+
+        using var streamRef = new DotNetStreamReference(stream);
+
+        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+}

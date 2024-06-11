@@ -1,0 +1,17 @@
+﻿@using XMLDocCrowdSourcer.Data
+@implements IDialogContentComponent<ProjectUser>
+
+<!--FluentMessageBarProvider Section="@App.MESSAGES_DIALOG" MaxMessageCount="1" /-->
+
+<FluentSelect Items=@([ProjectRole.Owner, ProjectRole.Manager])
+              TOption="ProjectRole"
+              @bind-SelectedOption=Content.Role>
+</FluentSelect>
+
+@code {
+    [Parameter]
+    public ProjectUser Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+}

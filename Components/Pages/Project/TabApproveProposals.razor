@@ -2,8 +2,14 @@
 @using XMLDocCrowdSourcer.Data
 @inject ApplicationDbContext db
 
-@foreach (var proposal in Proposals) {
-    <ProposalDisplay Proposal="proposal" OnProposalUpdated="OnProposalUpdated" />
+@if (Proposals.Any()) {
+    @foreach (var proposal in Proposals) {
+        <ProposalDisplay
+            Proposal="proposal"
+            OnProposalUpdated="OnProposalUpdated" />
+    }
+} else {
+    <p>No pending proposals</p>
 }
 
 @code {
@@ -22,5 +28,6 @@
 
     private void OnProposalUpdated() {
         OnParametersSet();
+        StateHasChanged();
     }
 }
