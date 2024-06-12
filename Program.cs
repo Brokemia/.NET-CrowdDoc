@@ -1,5 +1,6 @@
 using Blazorme;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -36,6 +37,11 @@ builder.Services.AddAuthentication(options => {
     .AddGoogle(googleOptions => {
         googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
         googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
+        googleOptions.Scope.Remove("email");
+    })
+    .AddDiscord(discordOptions => {
+        discordOptions.ClientId = builder.Configuration["Authentication:Discord:ClientId"]!;
+        discordOptions.ClientSecret = builder.Configuration["Authentication:Discord:ClientSecret"]!;
     })
     .AddIdentityCookies();
 
@@ -60,13 +66,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+builder.Services.AddIdentityCore<ApplicationUser>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-// TODO email confirmation provider or remove this feature
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddSingleton<IDocumentationParser, DocumentationParser>();
 
 // Diff component
