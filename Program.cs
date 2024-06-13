@@ -1,16 +1,17 @@
 using Blazorme;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
 using XMLDocCrowdSourcer.Components;
 using XMLDocCrowdSourcer.Components.Account;
 using XMLDocCrowdSourcer.Components.Pages.Project;
 using XMLDocCrowdSourcer.Data;
 using XMLDocCrowdSourcer.Services;
+
+DotNetEnv.Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,10 +39,12 @@ builder.Services.AddAuthentication(options => {
         googleOptions.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
         googleOptions.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
         googleOptions.Scope.Remove("email");
+        googleOptions.AccessDeniedPath = "/Account/Login";
     })
     .AddDiscord(discordOptions => {
         discordOptions.ClientId = builder.Configuration["Authentication:Discord:ClientId"]!;
         discordOptions.ClientSecret = builder.Configuration["Authentication:Discord:ClientSecret"]!;
+        discordOptions.AccessDeniedPath = "/Account/Login";
     })
     .AddIdentityCookies();
 
@@ -56,17 +59,26 @@ builder.Services.AddAuthorization(options => {
     // Also there's not really a reason you'd want to do this often
     options.AddPolicy("Project.Mappings.Import", policy =>
         policy.AddRequirements(new ProjectRequirement { AllowOwners = true }));
+    options.AddPolicy("Project.Create", policy =>
+        policy.RequireRole("SuperAdmin"));
 });
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectOwnerHandler>();
 builder.Services.AddSingleton<IAuthorizationHandler, ProjectManagerHandler>();
 
 // Database setup
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+if (builder.Environment.IsDevelopment()) {
+    builder.Services.AddDbContext<ApplicationDbContext>(options => {
+        options.EnableSensitiveDataLogging();
+    });
+} else {
+    // Use postgresql in production
+    builder.Services.AddDbContext<ApplicationDbContext, PostgresApplicationDbContext>();
+}
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>()
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
@@ -89,6 +101,10 @@ if (app.Environment.IsDevelopment()) {
 
 app.UseHttpsRedirection();
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions {
+    ForwardedHeaders = ForwardedHeaders.All
+});
+
 app.UseStaticFiles();
 app.UseAntiforgery();
 
@@ -97,5 +113,14 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+await RoleInitializer.InitializeAsync(app.Services);
+//var roleManager = app.Services.GetRequiredService<RoleManager<IdentityRole>>();//.Users.Find("ead22c21-fedc-40d2-9244-33a51dcc9e27").
+//var scope = app.Services.CreateScope();
+//var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+//var UserManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+//var user = UserManager.FindByIdAsync("34914022-4dc0-43c7-b2a6-cdfe135f16df").Result;
+//var res=UserManager.AddToRoleAsync(user, "SuperAdmin").Result;
+//db.SaveChanges();
 
 app.Run();
