@@ -42,7 +42,7 @@ namespace Microsoft.AspNetCore.Routing {
                 [FromForm] string returnUrl) => {
                     await signInManager.SignOutAsync();
                     return TypedResults.LocalRedirect($"~/{returnUrl}");
-                });
+                }).DisableAntiforgery();
 
             var manageGroup = accountGroup.MapGroup("/Manage").RequireAuthorization();
 
@@ -60,7 +60,7 @@ namespace Microsoft.AspNetCore.Routing {
 
                     var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl, signInManager.UserManager.GetUserId(context.User));
                     return TypedResults.Challenge(properties, [provider]);
-                });
+                }).DisableAntiforgery();
 
             var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();
             var downloadLogger = loggerFactory.CreateLogger("DownloadPersonalData");

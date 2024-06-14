@@ -81,7 +81,7 @@ namespace XMLDocCrowdSourcer.Components.Pages.Project {
                 return;
             }
 
-            var xmlDoc = reference.GetXmlDocName();
+            var xmlDoc = reference.GetFixedXmlDocName();
             typeNode.Children.Add(xmlDoc, new Node(member.Name, objectType) {
                 XmlDocId = xmlDoc
             });
@@ -99,9 +99,8 @@ namespace XMLDocCrowdSourcer.Components.Pages.Project {
             //}
 
             var typeNode = ResolveTypeNode(type.FullName);
-            typeNode.XmlDocId = type.GetXmlDocName();
+            typeNode.XmlDocId = type.GetFixedXmlDocName();
 
-            // TODO make sure nested types show up inside their parent. I think they're split by forward slashes
             foreach (var nested in type.NestedTypes) {
                 AddType(nested);
             }
@@ -125,8 +124,7 @@ namespace XMLDocCrowdSourcer.Components.Pages.Project {
 
         public void AddModule(ModuleDefinition module) {
             foreach (TypeDefinition type in module.Types) {
-                // TODO just use CompilerGeneratedAttribute for <PrivateImplementationDetails>
-                if (type.Name == "<Module>" || type.Name == "<PrivateImplementationDetails>") {
+                if (type.Name == "<Module>") {
                     continue;
                 }
                 

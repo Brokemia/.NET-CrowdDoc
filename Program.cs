@@ -90,6 +90,10 @@ builder.Services.AddDiff();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions {
+    ForwardedHeaders = ForwardedHeaders.All
+});
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment()) {
     app.UseMigrationsEndPoint();
@@ -101,10 +105,6 @@ if (app.Environment.IsDevelopment()) {
 
 app.UseHttpsRedirection();
 
-app.UseForwardedHeaders(new ForwardedHeadersOptions {
-    ForwardedHeaders = ForwardedHeaders.All
-});
-
 app.UseStaticFiles();
 app.UseAntiforgery();
 
@@ -113,6 +113,9 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 await RoleInitializer.InitializeAsync(app.Services);
 //var roleManager = app.Services.GetRequiredService<RoleManager<IdentityRole>>();//.Users.Find("ead22c21-fedc-40d2-9244-33a51dcc9e27").

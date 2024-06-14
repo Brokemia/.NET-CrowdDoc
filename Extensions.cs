@@ -1,4 +1,6 @@
-﻿using System.Security.Claims;
+﻿using Cecil.XmlDocNames;
+using Mono.Cecil;
+using System.Security.Claims;
 
 namespace XMLDocCrowdSourcer {
     public static class Extensions {
@@ -10,6 +12,12 @@ namespace XMLDocCrowdSourcer {
             userId = identity?.Claims.Single(c => c.Type == ClaimTypes.NameIdentifier).Value;
             
             return identity != null;
+        }
+
+        // TODO temporary fix https://github.com/Tenacom/Cecil.XmlDocNames/issues/80
+        public static string GetFixedXmlDocName(this MemberReference reference) {
+            var name = reference.GetXmlDocName();
+            return name.Replace("..", ".");
         }
     }
 }
