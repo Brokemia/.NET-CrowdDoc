@@ -8,8 +8,11 @@
 @attribute [Authorize]
 
 @if (project == null) {
+    <PageTitle>View Project</PageTitle>
     <p>Loading...</p>
 } else {
+    <PageTitle>@project.Name - Project</PageTitle>
+    
     <div class="d-flex justify-content-between">
         <h3>@project.Name</h3>
         <span>

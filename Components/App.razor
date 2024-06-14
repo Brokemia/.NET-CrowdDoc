@@ -14,7 +14,7 @@
           href="https://cdn.jsdelivr.net/npm/diff2html@3.1.7/bundles/css/diff2html.min.css"
           integrity="sha256-JDuTv80/2mUu1FBkviyttybv8oWSYmqVttPo7VlCXfE="
           crossorigin="anonymous">
-    <HeadOutlet />
+    <HeadOutlet @rendermode=RenderModeForPage />
 </head>
 
 <body>
@@ -28,7 +28,7 @@
             crossorigin="anonymous">
     </script>
 
-    <Routes @rendermode=RenderModeForPage/>
+    <Routes @rendermode=RenderModeForPage />
     <script src="_framework/blazor.web.js"></script>
     <script>
         // https://learn.microsoft.com/en-us/aspnet/core/blazor/file-downloads?view=aspnetcore-8.0
